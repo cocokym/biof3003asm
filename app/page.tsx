@@ -31,6 +31,17 @@ export default function Home() {
 
   const { signalQuality, qualityConfidence } = useSignalQuality(ppgData);
 
+  return (
+    <div>
+      {/* Other components */}
+      <MetricsCard
+        title="Signal Quality"
+        value={signalQuality}
+        confidence={qualityConfidence}
+      />
+    </div>
+  );
+
   // Start or stop recording
   useEffect(() => {
     if (isRecording) {
