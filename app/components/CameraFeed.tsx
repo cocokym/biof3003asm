@@ -1,4 +1,3 @@
-// components/CameraFeed.tsx
 import React from 'react';
 
 interface CameraFeedProps {

@@ -1,14 +1,24 @@
+// hooks/useMongoDB.ts
 import { useState } from 'react';
+
+interface RecordData {
+  subjectId: string;
+  heartRate: {
+    bpm: number;
+    confidence: number;
+  };
+  hrv: {
+    sdnn: number;
+    confidence: number;
+  };
+  ppgData: number[];
+  timestamp: Date;
+}
 
 interface HistoricalData {
   avgHeartRate: number;
   avgHRV: number;
-}
-
-interface RecordData {
-  heartRate: number;
-  hrv: number;
-  timestamp: string;
+  lastAccessDate?: string;
 }
 
 export default function useMongoDB() {
@@ -18,54 +28,62 @@ export default function useMongoDB() {
     avgHRV: 0,
   });
 
-  // POST: Save data to MongoDB
   const pushDataToMongo = async (recordData: RecordData) => {
-    if (isUploading) return; // Prevent overlapping calls
+    if (isUploading) return;
     setIsUploading(true);
+
     try {
-      const response = await fetch('/api/handle-record', {
+      const response = await fetch('/api/save-record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData),
       });
-      const result = await response.json();
-      if (result.success) {
-        console.log('✅ Data saved:', result.data);
-      } else {
-        console.error('❌ Error:', result.error);
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to save data');
       }
+
+      return data.data;
     } catch (error) {
       console.error('🚨 Network error:', error);
+      throw error;
     } finally {
       setIsUploading(false);
     }
   };
 
-  // GET: Fetch historical averages
-  const fetchHistoricalData = async () => {
+  const fetchHistoricalData = async (subjectId: string) => {
     try {
-      const response = await fetch('/api/handle-record', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const result = await response.json();
-      if (result.success) {
+      const response = await fetch(`/api/get-historical-data?subjectId=${subjectId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
         setHistoricalData({
-          avgHeartRate: result.avgHeartRate,
-          avgHRV: result.avgHRV,
+          avgHeartRate: data.avgHeartRate || 0,
+          avgHRV: data.avgHRV || 0,
+          lastAccessDate: data.lastAccessDate 
+            ? new Date(data.lastAccessDate).toLocaleString()
+            : undefined,
         });
       } else {
-        console.error('❌ Error:', result.error);
+        throw new Error(data.error || 'Failed to fetch historical data');
       }
     } catch (error) {
       console.error('🚨 Network error:', error);
+      throw error;
     }
   };
 
   return {
-    isUploading,
     pushDataToMongo,
     fetchHistoricalData,
     historicalData,
+    isUploading,
   };
 }

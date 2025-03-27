@@ -1,52 +1,49 @@
-// app/api/handle-record/route.ts
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import dbConnect from '../../../utils/dbConnect';
+import Record from '../../../models/Record';
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
-if (!MONGODB_URI) {
-  throw new Error('MONGODB_URI not defined');
-}
-
-let cached = (global as any).mongoose;
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
-}
-
-async function dbConnect() {
-  if (cached.conn) return cached.conn;
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, { bufferCommands: false });
-  }
-  cached.conn = await cached.promise;
-  return cached.conn;
-}
-
-const RecordSchema = new mongoose.Schema({
-  heartRate: { bpm: Number, confidence: Number },
-  hrv: { sdnn: Number, confidence: Number },
-  ppgData: [Number],
-  timestamp: { type: Date, default: Date.now },
-});
-
-const Record = mongoose.models.Record || mongoose.model('Record', RecordSchema);
-
-// POST Handler
 export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
+    
+    // Validate required fields
+    if (!body.subjectId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing subjectId' },
+        { status: 400 }
+      );
+    }
+
     const newRecord = await Record.create(body);
-    return NextResponse.json({ success: true, data: newRecord }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: newRecord },
+      { status: 201 }
+    );
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    console.error('Save record error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }
 
-// GET Handler
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await dbConnect();
+    const url = new URL(request.url);
+    const subjectId = url.searchParams.get('subjectId');
+
+    if (!subjectId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing subjectId in query parameters' },
+        { status: 400 }
+      );
+    }
+
     const pipeline = [
+      { $match: { subjectId } },
       {
         $group: {
           _id: null,
@@ -55,6 +52,7 @@ export async function GET() {
         },
       },
     ];
+
     const result = await Record.aggregate(pipeline);
     return NextResponse.json({ success: true, ...result[0] }, { status: 200 });
   } catch (error: any) {
