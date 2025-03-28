@@ -29,7 +29,8 @@ The HeartLen App leverages a webcam to capture PPG signals and process them in r
 3. **Set up environment variables**:
 - Create a .env.local file in the root directory.
 - Add your MongoDB connection string:
-MONGODB_URI=mongodb+srv://coconozomi:FaABVqugWuPdtUDd@cluster0.jk2ul.mongodb.net/
+  ```bash
+  MONGODB_URI=mongodb+srv://coconozomi:FaABVqugWuPdtUDd@cluster0.jk2ul.mongodb.net/
 
 4. **Start the development server**:
    ```bash
