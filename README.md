@@ -23,6 +23,7 @@ The HeartLen App leverages a webcam to capture PPG signals and process them in r
    cd heartlen-app
 
 2. **Install dependencies**:
+   ```bash
    npm install 
 
 3. **Set up environment variables**:
@@ -31,6 +32,7 @@ The HeartLen App leverages a webcam to capture PPG signals and process them in r
 MONGODB_URI=mongodb+srv://coconozomi:FaABVqugWuPdtUDd@cluster0.jk2ul.mongodb.net/
 
 4. **Start the development server**:
+   ```bash
    npm run dev
 
 5. **Open the app in your browser**:
