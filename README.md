@@ -52,7 +52,7 @@ To deploy the app:
    npm run build
 2. Start the production server:
    ```bash
-   npm start
+   npm run start
 3. Deploy to a hosting platform:
 - Use platforms like Vercel for seamless deployment.
 - Ensure the .env.local file is configured with the correct MongoDB connection string in the hosting environment.
