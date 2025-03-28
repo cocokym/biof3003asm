@@ -6,6 +6,7 @@ interface SignalQualityResults {
   signalQuality: string;
   qualityConfidence: number;
 }
+
 export default function useSignalQuality(
   ppgData: number[]
 ): SignalQualityResults {
@@ -17,14 +18,12 @@ export default function useSignalQuality(
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const loadedModel = await tf.loadLayersModel('/tfjs_model/model.json');
+        const loadedModel = await tf.loadLayersModel('/model/model.json');
         modelRef.current = loadedModel;
-        console.log('PPG quality assessment model loaded successfully');
       } catch (error) {
         console.error('Error loading model:', error);
       }
     };
-
     loadModel();
   }, []);
 
@@ -38,84 +37,94 @@ export default function useSignalQuality(
     if (!modelRef.current || signal.length < 100) return;
 
     try {
-      const features = calculateFeatures(signal);
+      const features = await calculateFeatures(signal);
       const inputTensor = tf.tensor2d([features]);
-      const prediction = (await modelRef.current.predict(
-        inputTensor
-      )) as tf.Tensor;
+      const prediction = modelRef.current.predict(inputTensor) as tf.Tensor;
       const probabilities = await prediction.data();
 
       const classIndex = probabilities.indexOf(Math.max(...probabilities));
       const classes = ['bad', 'acceptable', 'excellent'];
-      const predictedClass = classes[classIndex];
       const confidence = probabilities[classIndex] * 100;
 
-      setSignalQuality(predictedClass);
+      setSignalQuality(classes[classIndex]);
       setQualityConfidence(confidence);
 
-      inputTensor.dispose();
-      prediction.dispose();
+      tf.dispose([inputTensor, prediction]);
     } catch (error) {
       console.error('Error assessing signal quality:', error);
     }
   };
 
-  const calculateFeatures = (signal: number[]): number[] => {
-    if (!signal.length) return new Array(8).fill(0);
+  const calculateFeatures = async (signal: number[]): Promise<number[]> => {
+    if (signal.length === 0) return new Array(15).fill(0);
 
-    // Calculate mean
-    const mean = signal.reduce((sum, val) => sum + val, 0) / signal.length;
+    // Time-domain features
+    const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
+    const std = Math.sqrt(
+      signal.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / signal.length
+    );
+    const sorted = [...signal].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const var_ = std ** 2;
+    const signalRange = Math.max(...signal) - Math.min(...signal);
+    
+    // Higher-order statistics
+    const skewness = std === 0 ? 0 : 
+      signal.reduce((a, x) => a + Math.pow(x - mean, 3), 0) / 
+      (signal.length * Math.pow(std, 3));
+    const kurtosis = std === 0 ? 0 : 
+      (signal.reduce((a, x) => a + Math.pow(x - mean, 4), 0) / 
+      (signal.length * Math.pow(std, 4))) - 3;
 
-    // Calculate standard deviation
-    const squaredDiffs = signal.map((val) => Math.pow(val - mean, 2));
-    const variance =
-      squaredDiffs.reduce((sum, val) => sum + val, 0) / signal.length;
-    const std = Math.sqrt(variance);
+    // Signal characteristics
+    const zeroCrossings = signal.slice(1).reduce((count, x, i) => 
+      (signal[i] * x < 0) ? count + 1 : count, 0);
+    const rms = Math.sqrt(signal.reduce((a, x) => a + x**2, 0) / signal.length);
+    const iqr = sorted[Math.floor(sorted.length * 0.75)] - sorted[Math.floor(sorted.length * 0.25)];
+    const mad = sorted.reduce((a, x) => a + Math.abs(x - median), 0) / signal.length;
 
-    // Calculate skewness
-    const cubedDiffs = signal.map((val) => Math.pow(val - mean, 3));
-    const skewness =
-      cubedDiffs.reduce((sum, val) => sum + val, 0) /
-      signal.length /
-      Math.pow(std, 3);
+    // Frequency-domain features
+    const fftTensor = tf.spectral.fft(tf.tensor1d(signal));
+    const fftData = await fftTensor.data();
+    fftTensor.dispose();
 
-    // Calculate kurtosis
-    const fourthPowerDiffs = signal.map((val) => Math.pow(val - mean, 4));
-    const kurtosis =
-      fourthPowerDiffs.reduce((sum, val) => sum + val, 0) /
-      signal.length /
-      Math.pow(std, 4);
+    const magnitudes: number[] = [];
+    for (let i = 0; i < fftData.length; i += 2) {
+      magnitudes.push(Math.hypot(fftData[i], fftData[i + 1]));
+    }
+    const halfMagnitudes = magnitudes.slice(0, Math.ceil(magnitudes.length / 2));
+    const spectralEnergy = halfMagnitudes.reduce((a, b) => a + b, 0);
+    const spectralEntropy = -halfMagnitudes
+      .map(m => m / (spectralEnergy + 1e-7))
+      .reduce((a, m) => a + (m > 0 ? m * Math.log(m + 1e-7) : 0), 0);
 
-    // Calculate signal range and peak-to-peak
-    const max = Math.max(...signal);
-    const min = Math.min(...signal);
-    const signalRange = max - min;
-    const peakToPeak = signalRange;
-
-    // Calculate zero crossings
-    let zeroCrossings = 0;
-    for (let i = 1; i < signal.length; i++) {
-      if (
-        (signal[i] >= 0 && signal[i - 1] < 0) ||
-        (signal[i] < 0 && signal[i - 1] >= 0)
-      ) {
-        zeroCrossings++;
-      }
+    // Peak detection
+    let numPeaks = 0;
+    try {
+      let prev = signal[0];
+      let increasing = false;
+      numPeaks = signal.slice(1).reduce((count, x) => {
+        if (x > prev && !increasing) {
+          increasing = true;
+        } else if (x < prev && increasing) {
+          count++;
+          increasing = false;
+        }
+        prev = x;
+        return count;
+      }, 0);
+    } catch {
+      numPeaks = 0;
     }
 
-    // Calculate RMS
-    const squaredSum = signal.reduce((sum, val) => sum + val * val, 0);
-    const rms = Math.sqrt(squaredSum / signal.length);
+    // SNR calculation (dB)
+    const snr = var_ === 0 ? 0 : 10 * Math.log10((mean ** 2) / var_);
 
     return [
-      mean,
-      std,
-      skewness,
-      kurtosis,
-      signalRange,
-      zeroCrossings,
-      rms,
-      peakToPeak,
+      mean, std, median, var_, skewness,
+      kurtosis, signalRange, zeroCrossings,
+      rms, iqr, mad, spectralEnergy,
+      spectralEntropy, numPeaks, snr
     ];
   };
 
