@@ -10,6 +10,7 @@ import useMongoDB from './hooks/useMongoDB';
 import { toast } from 'react-hot-toast';
 
 export default function Home() {
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   const [isRecording, setIsRecording] = useState(false);
   const [isSampling, setIsSampling] = useState(false); // New state for sampling
   const [isUploading, setIsUploading] = useState(false);
@@ -18,6 +19,7 @@ export default function Home() {
   const [currentSubject, setCurrentSubject] = useState('');
   const [confirmedSubject, setConfirmedSubject] = useState('');
   const { pushDataToMongo: saveToMongo, fetchHistoricalData, historicalData } = useMongoDB();
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   // Define refs for video and canvas
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -283,6 +285,7 @@ export default function Home() {
                 <MetricsCard
                   title="SIGNAL QUALITY"
                   value={{ quality: signalQuality || '--' }}
+                  unit=""
                   confidence={qualityConfidence || 0}
                   className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow"
                 />
