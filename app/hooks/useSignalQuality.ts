@@ -18,8 +18,9 @@ export default function useSignalQuality(
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const loadedModel = await tf.loadLayersModel('/model/model.json');
+        const loadedModel = await tf.loadLayersModel('/tfjs_model/model.json');
         modelRef.current = loadedModel;
+        console.log('Model loaded successfully:', loadedModel);
       } catch (error) {
         console.error('Error loading model:', error);
       }
