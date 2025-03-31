@@ -9,7 +9,7 @@ import useSignalQuality from './hooks/useSignalQuality';
 import useMongoDB from './hooks/useMongoDB';
 import { toast } from 'react-hot-toast';
 
-export default function Home() {
+export default function Home() { 
   /* eslint-disable @typescript-eslint/no-unused-vars */
   const [isRecording, setIsRecording] = useState(false);
   const [isSampling, setIsSampling] = useState(false); // New state for sampling
