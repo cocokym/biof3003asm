@@ -56,4 +56,4 @@ To deploy the app:
 3. Deploy to a hosting platform:
 - Use platforms like Vercel for seamless deployment.
 - Ensure the .env.local file is configured with the correct MongoDB connection string in the hosting environment.
-4. Vercel link: https://biof3003asmfinal.vercel.app/ 
+4. Vercel link: https://biof3003asmheartlensfinal.vercel.app/
