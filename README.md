@@ -30,8 +30,7 @@ The HeartLen App leverages a webcam to capture PPG signals and process them in r
 - Create a .env.local file in the root directory.
 - Add your MongoDB connection string:
   ```bash
-  MONGODB_URI=mongodb+srv://coconozomi:FaABVqugWuPdtUDd@cluster0.jk2ul.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
-
+  MONGODB_URI=your_mongodb_connection_string
 4. **Start the development server**:
    ```bash
    npm run dev
